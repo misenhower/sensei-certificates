@@ -438,7 +438,7 @@ function sensei_get_certificate_data_fields() {
 			'position_description' => __( 'Optional position of the Certificate Message', 'sensei-certificates' ),
 			'text_label' => __( 'Message Text', 'sensei-certificates' ),
 			'text_description' => __( 'Text to display in the message area.', 'sensei-certificates' ),
-			'text_placeholder' => __( 'This is to certify that {{learner}} has completed the course', 'sensei-certificates' ),
+			'text_placeholder' => __( 'This is to certify that', 'sensei-certificates' ) . "\r\n\r\n{{learner}} \r\n\r\n" . __( 'has completed the course', 'sensei-certificates' )
 		),
 		'course' => array(
 			'type' => 'text',
