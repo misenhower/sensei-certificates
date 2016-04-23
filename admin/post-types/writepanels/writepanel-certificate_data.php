@@ -87,8 +87,8 @@ function certificate_template_data_meta_box( $post ) {
 
 				// Data fields
 				$data_fields = sensei_get_certificate_data_fields();
-				foreach ( $data_fields as $field_key => $field_info )
-				{
+				foreach ( $data_fields as $field_key => $field_info ) {
+
 					echo '<div class="options_group">';
 						certificate_templates_wp_position_picker( array(
 							'id'          => "certificate_{$field_key}_pos",
