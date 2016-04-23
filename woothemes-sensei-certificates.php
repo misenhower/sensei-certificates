@@ -466,7 +466,7 @@ function sensei_get_certificate_data_fields() {
 		),
 	);
 
-	return apply_filters('sensei_certificate_data_fields', $data_fields);
+	return apply_filters( 'sensei_certificate_data_fields', $data_fields );
 }
 
 
