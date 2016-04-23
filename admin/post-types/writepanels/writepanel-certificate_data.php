@@ -157,7 +157,10 @@ function certificate_templates_process_meta( $post_id, $post ) {
 	// original sizes: default 11, product name 16, sku 8
 	// create the certificate template fields data structure
 	$fields = array();
-	foreach ( array( '_certificate_heading', '_certificate_message', '_certificate_course', '_certificate_completion', '_certificate_place' ) as $i => $field_name ) {
+	$data_fields = sensei_get_certificate_data_fields();
+	foreach ( array_keys($data_fields) as $i => $field_key ) {
+
+		$field_name = '_certificate_' . $field_key;
 
 		// set the field defaults
 		$field = array(
