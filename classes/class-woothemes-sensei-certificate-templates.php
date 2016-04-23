@@ -465,7 +465,7 @@ class WooThemes_Sensei_Certificate_Templates {
 			} // End If Statement
 
 			// Replace the template tags
-			$field_value = str_replace( array( '{{learner}}', '{{course_title}}', '{{completion_date}}', '{{course_place}}'  ), array( $student_name, $course['post_title'], $date, get_bloginfo( 'name' ) ) , $field_value );
+			$field_value = apply_filters( 'sensei_certificates_data_field_value', $field_value, $field_key, true, null, null );
 
 			// Check if the field has a set position
 			if ( isset( $this->certificate_template_fields[$meta_key]['position']['x1'] ) ) {
