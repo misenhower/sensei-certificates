@@ -21,6 +21,7 @@
  * - sensei_certificates_updates_list()
  * - sensei_update_users_certificate_data()
  * - sensei_create_master_certificate_template()
+ * - sensei_get_certificate_data_fields()
  * - is_sensei_active()
  */
 
