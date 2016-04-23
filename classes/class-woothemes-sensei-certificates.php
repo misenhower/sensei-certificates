@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  * - generate_certificate_number()
  * - can_view_certificate()
  * - download_certificate()
+ * - replace_data_field_template_tags()
  * - certificate_text()
  * - certificate_backgroudn()
  * - get_certificate_font_settings()
@@ -466,6 +467,13 @@ class WooThemes_Sensei_Certificates {
 
 	} // End generate_certificate()
 
+	/**
+	 * Replace template tags on certificate data fields.
+	 *
+	 * @access public
+	 * @since  x.x.x
+	 * @return string
+	 */
 	public function replace_data_field_template_tags($field_value, $field_key, $is_preview, $student, $course)
 	{
 		// Prepare data
