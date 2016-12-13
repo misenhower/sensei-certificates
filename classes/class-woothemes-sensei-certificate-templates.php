@@ -390,6 +390,13 @@ class WooThemes_Sensei_Certificate_Templates {
 			if( isset( $custom_font['family'] ) && isset( $custom_font['file'] ) ) {
 				$fpdf->AddFont( $custom_font['family'], '', $custom_font['file'], true );
 			}
+        // Add custom fonts (new)
+        } elseif ($custom_fonts = apply_filters('sensei_certificates_custom_fonts', [])) {
+            foreach ($custom_fonts as $custom_font) {
+                if (isset($custom_font['family']) && isset($custom_font['file'])) {
+                    $fpdf->AddFont($custom_font['family'], '', $custom_font['file'], true);
+                }
+            }
 		} else {
 			// Add multibyte font
 			$fpdf->AddFont( 'DejaVu', '', 'DejaVuSansCondensed.ttf', true );

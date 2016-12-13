@@ -54,7 +54,16 @@ function certificate_template_data_meta_box( $post ) {
 		'Helvetica' => 'Helvetica',
 		'Courier'   => 'Courier',
 		'Times'     => 'Times',
+        'DejaVu'    => 'DejaVu'
 	);
+
+    // Add custom fonts to dropdown
+    $custom_fonts = array();
+    foreach(apply_filters('sensei_certificates_custom_fonts', array()) as $custom_font) {
+        $custom_fonts[$custom_font['family']] = $custom_font['family'];
+    }
+    $default_fonts = array_merge($custom_fonts, $default_fonts);
+
 	$available_fonts = array_merge( array( '' => '' ), $default_fonts );
 
 	// since this little snippet of css applies only to the certificates post page, it's easier to have inline here
