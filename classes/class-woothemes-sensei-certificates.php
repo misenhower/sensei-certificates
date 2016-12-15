@@ -484,7 +484,7 @@ class WooThemes_Sensei_Certificates {
 		}
 		else {
 			$course_title = $course->post_title;
-			$course_end = Sensei_Utils::sensei_check_for_activity( array( 'post_id' => $course->ID, 'user_id' => $user->ID, 'type' => 'sensei_course_status' ), true );
+			$course_end = Sensei_Utils::sensei_check_for_activity( array( 'post_id' => $course->ID, 'user_id' => $student->ID, 'type' => 'sensei_course_status' ), true );
 			$course_end_date = $course_end->comment_date;
 		}
 
@@ -511,7 +511,7 @@ class WooThemes_Sensei_Certificates {
 		$replacement_values = array(
 			'{{learner}}' => $student_name,
 			'{{course_title}}' => $course_title,
-			'{{completion_date}}' => $completion_date,
+			'{{completion_date}}' => $date,
 			'{{course_place}}' => get_bloginfo('name'),
 		);
 
