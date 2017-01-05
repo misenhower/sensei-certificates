@@ -465,9 +465,13 @@ class WooThemes_Sensei_Certificate_Templates {
 		} // End For Loop
 
         $upload_dir = wp_upload_dir();
-        $filename = $upload_dir['path'] . '/cert-orig-preview-' . $post->ID . '.pdf';
-        $filename_split = $upload_dir['path'] . '/cert-preview-' . $post->ID . '.pdf';
-        $url = $upload_dir['url'] . '/cert-preview-' . $post->ID . '.pdf';
+        $upload_path = $upload_dir['basedir'] . '/woocommerce_uploads/certs/';
+        $filename = $upload_path . '/cert-orig-preview-' . $post->ID . '.pdf';
+        $filename_split = $upload_path . '/cert-preview-' . $post->ID . '.pdf';
+
+        if ( ! file_exists( $upload_path ) ) {
+            mkdir( $upload_path, 755, true );
+        }
 
         $fpdf->Output( $filename, 'F' );
 
