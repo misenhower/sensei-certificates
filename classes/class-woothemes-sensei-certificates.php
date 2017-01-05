@@ -456,7 +456,26 @@ class WooThemes_Sensei_Certificates {
 			// Generate the certificate here
 			require_once( 'class-woothemes-sensei-pdf-certificate.php' );
 			$pdf = new WooThemes_Sensei_PDF_Certificate( $hash );
-			$pdf->generate_pdf();
+
+			$upload_dir = wp_upload_dir();
+			$filename = $upload_dir['path'] . '/cert-orig-' . $hash . '.pdf';
+			$filename_split = $upload_dir['path'] . '/cert-' . $hash . '.pdf';
+			$url = $upload_dir['url'] . '/cert-' . $hash . '.pdf';
+
+			$pdf->generate_pdf( $filename );
+
+			// We may need to split the image.
+			$course_id = get_post_meta( get_the_ID(), 'course_id', true );
+            $certificate_template_id = get_post_meta( $course_id, '_course_certificate_template', true );
+			$pagecount = get_post_meta( $certificate_template_id, '_pagecount', true );
+            $pagecount = intval( $pagecount );
+			if ( $pagecount > 1 ) {
+				exec( "convert {$filename} -crop 1x{$pagecount}@ +repage -compress zip {$filename_split}" );
+			} else {
+				exec( "mv {$filename} {$filename_split}" );
+			}
+
+			wp_redirect( $url );
 			exit;
 
 		} else {

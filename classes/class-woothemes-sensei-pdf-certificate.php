@@ -156,7 +156,7 @@ class WooThemes_Sensei_PDF_Certificate {
 
 		if ( $path ) {
 			// save the pdf as a file
-			$fpdf->Output( $path . '/' . $this->get_certificate_template_path() . '/' . $this->get_certificate_filename(), 'F' );
+			$fpdf->Output( $path, 'F' );
 		} else {
 			// download file
 			$fpdf->Output( 'certificate-preview-' . $this->hash . '.pdf', 'I' );

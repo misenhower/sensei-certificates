@@ -92,6 +92,13 @@ function certificate_template_data_meta_box( $post ) {
 						'description' => __( 'The default text color for the certificate.', 'sensei-certificates' ),
 						'class'       => 'colorpick',
 					) );
+					certificates_wp_text_input( array(
+						'id'          => '_pagecount',
+						'label'       => __( 'Number of pages', 'sensei-certificates' ),
+						'default'     => '1',
+						'description' => __( 'The total number of certificates/pages.', 'sensei-certificates' ),
+						'class'		  => 'medium',
+					) );
 				echo '</div>';
 
 				// Data fields
@@ -162,6 +169,7 @@ function certificate_templates_process_meta( $post_id, $post ) {
 	                                                    ( isset( $_POST['_certificate_font_style_i'] ) && 'yes' == $_POST['_certificate_font_style_i'] ? 'I' : '' ) .
 	                                                    ( isset( $_POST['_certificate_font_style_c'] ) && 'yes' == $_POST['_certificate_font_style_c'] ? 'C' : '' ) .
 	                                                    ( isset( $_POST['_certificate_font_style_o'] ) && 'yes' == $_POST['_certificate_font_style_o'] ? 'O' : '' ) );
+	update_post_meta( $post_id, '_pagecount', $_POST['_pagecount'] ?: 1 );
 
 	// original sizes: default 11, product name 16, sku 8
 	// create the certificate template fields data structure

@@ -266,6 +266,7 @@ class WooThemes_Sensei_Certificate_Templates {
 			'certificate_font_family'  => '',
 			'certificate_heading_pos' => '',
 			'certificate_template_fields'       => array(),
+            'pagecount'                        =>  1,
 		);
 
 		// Load the data from the custom fields
@@ -423,6 +424,7 @@ class WooThemes_Sensei_Certificate_Templates {
 			'certificate_font_family'	=> array(),
 			'image_ids'            => array(),
 			'certificate_template_fields'       => array(),
+            'pagecount'                     =>  1,
 		);
 
 		// Load the data from the custom fields
@@ -462,8 +464,23 @@ class WooThemes_Sensei_Certificate_Templates {
 
 		} // End For Loop
 
-		// download file
-		$fpdf->Output( 'certificate-preview-' . $post->ID . '.pdf', 'I' );
+        $upload_dir = wp_upload_dir();
+        $filename = $upload_dir['path'] . '/cert-orig-preview-' . $post->ID . '.pdf';
+        $filename_split = $upload_dir['path'] . '/cert-preview-' . $post->ID . '.pdf';
+        $url = $upload_dir['url'] . '/cert-preview-' . $post->ID . '.pdf';
+
+        $fpdf->Output( $filename, 'F' );
+
+        // We may need to split the image.
+        $pagecount = intval( $this->pagecount );
+        if ( $pagecount > 1 ) {
+            exec( "convert {$filename} -crop 1x{$pagecount}@ +repage -compress zip {$filename_split}" );
+        } else {
+            exec( "mv {$filename} {$filename_split}" );
+        }
+
+        wp_redirect( $url );
+        exit;
 
 	} // End generate_pdf()
 
