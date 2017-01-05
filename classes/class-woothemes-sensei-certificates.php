@@ -479,7 +479,12 @@ class WooThemes_Sensei_Certificates {
 				exec( "mv {$filename} {$filename_split}" );
 			}
 
-			wp_redirect( $url );
+			// We send to a browser
+			header('Content-Type: application/pdf');
+			header('Content-Disposition: inline; filename="cert-'.$hash.'pdf"');
+			header('Cache-Control: private, max-age=0, must-revalidate');
+			header('Pragma: public');
+			echo file_get_contents( $filename_split );
 			exit;
 
 		} else {
