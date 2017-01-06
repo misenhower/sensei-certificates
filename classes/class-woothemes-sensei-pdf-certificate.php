@@ -65,7 +65,7 @@ class WooThemes_Sensei_PDF_Certificate {
 		$this->certificate_pdf_data = apply_filters( 'woothemes_sensei_certificates_pdf_data', array(
 			'font_color'   => '#000000',
 			'font_size'    => '50',
-			'font_style'   => 'B',
+			'font_style'   => '',
 			'font_family'  => 'Helvetica'
 		) );
 
@@ -101,7 +101,7 @@ class WooThemes_Sensei_PDF_Certificate {
 	 *
 	 * @return mixed nothing if a $path is supplied, otherwise a PDF download
 	 */
-	public function generate_pdf( $path = '' ) {
+	public function generate_pdf( $path = '', $pagecount = 1 ) {
 
 		// include the pdf library
 		$root_dir = dirname( __FILE__ ) . DIRECTORY_SEPARATOR;
@@ -122,39 +122,158 @@ class WooThemes_Sensei_PDF_Certificate {
 			$orientation = 'P';
 		} // End If Statement
 
-		// Create the pdf
-		// TODO: we're assuming a standard DPI here of where 1 point = 1/72 inch = 1 pixel
-		// When writing text to a Cell, the text is vertically-aligned in the middle
-		$fpdf = new tFPDF( $orientation, 'pt', array( $image_attr[0], $image_attr[1] ) );
 
-		$fpdf->AddPage();
-		$fpdf->SetAutoPageBreak( false );
+// Find certificate based on hash
+        $args = array(
+            'post_type' => 'certificate',
+            'meta_key' => 'certificate_hash',
+            'meta_value' => $this->hash
+        );
 
-		// Add custom font
-		$custom_font = apply_filters( 'sensei_certificates_custom_font', false );
-        if ($custom_font) {
-            if (isset($custom_font['family']) && isset($custom_font['file'])) {
-                $fpdf->AddFont($custom_font['family'], '', $custom_font['file'], true);
+        $query = new WP_Query( $args );
+        $certificate_id = 0;
+
+        if ( $query->have_posts() ) {
+
+            $query->the_post();
+            $certificate_id = $query->posts[0]->ID;
+
+        } // End If Statement
+
+        wp_reset_query();
+
+        if ( 0 == intval( $certificate_id ) ) {
+            wp_die( __( 'The certificate you are searching for does not exist.', 'sensei-certificates' ), __( 'Certificate Error', 'sensei-certificates' ) );
+        }
+
+        // Get Student Data
+        $user_id = get_post_meta( $certificate_id, 'learner_id', true );
+        $student = get_userdata( $user_id );
+
+        // Get Course Data
+        $course_id = get_post_meta( $certificate_id, 'course_id', true );
+        $course = Sensei()->course->course_query( -1, 'usercourses', $course_id );
+        $course = $course[0];
+
+        // Get the certificate template
+        $certificate_template_id = get_post_meta( $course_id, '_course_certificate_template', true );
+
+        $certificate_template_custom_fields = get_post_custom( $certificate_template_id );
+
+        // Define the data we're going to load: Key => Default value
+        $load_data = array(
+            'certificate_font_style'	=> array(),
+            'certificate_font_color'	=> array(),
+            'certificate_font_size'	=> array(),
+            'certificate_font_family'	=> array(),
+            'image_ids'            => array(),
+            'certificate_template_fields'       => array(),
+        );
+
+        // Load the data from the custom fields
+        foreach ( $load_data as $key => $default ) {
+
+            // set value from db (unserialized if needed) or use default
+            $this->$key = ( isset( $certificate_template_custom_fields[ '_' . $key ][0] ) && '' !== $certificate_template_custom_fields[ '_' . $key ][0] ) ? ( is_array( $default ) ? maybe_unserialize( $certificate_template_custom_fields[ '_' . $key ][0] ) : $certificate_template_custom_fields[ '_' . $key ][0] ) : $default;
+
+        } // End For Loop
+
+        // Data fields
+        $data_fields = sensei_get_certificate_data_fields();
+
+
+        // Create split images.
+        $upload_dir = wp_upload_dir();
+
+        $pos = strrpos($image,'.');
+        if(!$pos)
+            return;
+        $type = substr($image,$pos+1);
+
+        exec( "convert {$image} -crop 1x{$pagecount}@ +repage {$image}_%d.{$type}" );
+
+        $page_dims = array();
+
+        for ( $i = 0; $i < $pagecount; $i++ ) {
+            $page_dims[] = [ $image_attr['0'], $image_attr['1'] / $pagecount, 0, $i * ($image_attr['1'] / $pagecount) ];
+        }
+
+        // Create the pdf
+        // TODO: we're assuming a standard DPI here of where 1 point = 1/72 inch = 1 pixel
+        // When writing text to a Cell, the text is vertically-aligned in the middle
+        $fpdf = new tFPDF( $orientation, 'pt', array( $page_dims[0][0], $page_dims[0][1] ) );
+
+        $fpdf->AddPage();
+        $fpdf->SetAutoPageBreak( false );
+
+        // Add custom font
+        $custom_font = apply_filters( 'sensei_certificates_custom_font', false );
+        if( $custom_font ) {
+            if( isset( $custom_font['family'] ) && isset( $custom_font['file'] ) ) {
+                $fpdf->AddFont( $custom_font['family'], '', $custom_font['file'], true );
             }
-
-        }// Add custom fonts (new)
-        elseif ($custom_fonts = apply_filters('sensei_certificates_custom_fonts', [])) {
+            // Add custom fonts (new)
+        } elseif ($custom_fonts = apply_filters('sensei_certificates_custom_fonts', [])) {
             foreach ($custom_fonts as $custom_font) {
                 if (isset($custom_font['family']) && isset($custom_font['file'])) {
                     $fpdf->AddFont($custom_font['family'], '', $custom_font['file'], true);
                 }
             }
         } else {
-			// Add multibyte font
-			$fpdf->AddFont( 'DejaVu', '', 'DejaVuSansCondensed.ttf', true );
-		}
+            // Add multibyte font
+            $fpdf->AddFont( 'DejaVu', '', 'DejaVuSansCondensed.ttf', true );
+        }
 
-		// Set the border image as the background
-		$fpdf->Image( $image, 0, 0, $image_attr[0], $image_attr[1] );
 
-		do_action( 'sensei_certificates_before_pdf_output', $this, $fpdf );
+        for ( $i = 0; $i < count ( $page_dims ); $i++ ) {
+            // set the certificate image
+            $fpdf->Image( "{$image}_{$i}.{$type}", 0, 0, $page_dims[$i][0], $page_dims[$i][1] );
 
-		if ( $path ) {
+            $show_border = apply_filters( 'woothemes_sensei_certificates_show_border', 0 );
+            $start_position = 200;
+
+            foreach ( $data_fields as $field_key => $field_info ) {
+
+                $meta_key = 'certificate_' . $field_key;
+
+                // Get the default field value
+                $field_value = $field_info['text_placeholder'];
+                if ( isset( $this->certificate_template_fields[$meta_key]['text'] ) && '' != $this->certificate_template_fields[$meta_key]['text'] ) {
+
+                    $field_value = $this->certificate_template_fields[$meta_key]['text'];
+                } // End If Statement
+
+                // Replace the template tags
+                $field_value = apply_filters( 'sensei_certificate_data_field_value', $field_value, $field_key, false, $student, $course );
+
+                // Check if the field has a set position
+                if ( isset( $this->certificate_template_fields[$meta_key]['position']['x1'] ) ) {
+
+                    $y_min = $page_dims[$i][3];
+                    $y_max = $i == count($page_dims) - 1 ? PHP_INT_MAX : $page_dims[$i + 1][3];
+
+                    if ( $y_min > $this->certificate_template_fields[$meta_key]['position']['y1'] ||
+                        $this->certificate_template_fields[$meta_key]['position']['y1'] > $y_max ) {
+                        continue;
+                    }
+
+                    // Write the value to the PDF
+                    $function_name = ( $field_info['type'] == 'textarea' ) ? 'textarea_field' : 'text_field';
+
+                    $font_settings = $this->get_certificate_font_settings( $meta_key );
+
+                    call_user_func_array(array($this, $function_name), array( $fpdf, $field_value, $show_border, array( $this->certificate_template_fields[$meta_key]['position']['x1'], $this->certificate_template_fields[$meta_key]['position']['y1'] - $y_min, $this->certificate_template_fields[$meta_key]['position']['width'], $this->certificate_template_fields[$meta_key]['position']['height'] ), $font_settings ));
+
+                } // End If Statement
+
+            } // End For Loop
+
+            if ( $i < count( $page_dims ) - 1 ) {
+                $fpdf->AddPage();
+            }
+        }
+
+        if ( $path ) {
 			// save the pdf as a file
 			$fpdf->Output( $path, 'F' );
 		} else {
@@ -163,6 +282,39 @@ class WooThemes_Sensei_PDF_Certificate {
 		} // End If Statement
 
 	} // End generate_pdf()
+
+
+    /**
+     * Returns font settings for the certificate template
+     *
+     * @access public
+     * @since  1.0.0
+     * @param string $field_key
+     * @return array $return_array
+     */
+    public function get_certificate_font_settings( $field_key = '' ) {
+
+        $return_array = array();
+
+        if ( isset( $this->certificate_template_fields[$field_key]['font']['color'] ) && '' != $this->certificate_template_fields[$field_key]['font']['color'] ) {
+            $return_array['font_color'] = $this->certificate_template_fields[$field_key]['font']['color'];
+        } // End If Statement
+
+        if ( isset( $this->certificate_template_fields[$field_key]['font']['family'] ) && '' != $this->certificate_template_fields[$field_key]['font']['family'] ) {
+            $return_array['font_family'] = $this->certificate_template_fields[$field_key]['font']['family'];
+        } // End If Statement
+
+        if ( isset( $this->certificate_template_fields[$field_key]['font']['style'] ) && '' != $this->certificate_template_fields[$field_key]['font']['style'] ) {
+            $return_array['font_style'] = $this->certificate_template_fields[$field_key]['font']['style'];
+        } // End If Statement
+
+        if ( isset( $this->certificate_template_fields[$field_key]['font']['size'] ) && '' != $this->certificate_template_fields[$field_key]['font']['size'] ) {
+            $return_array['font_size'] = $this->certificate_template_fields[$field_key]['font']['size'];
+        } // End If Statement
+
+        return $return_array;
+
+    } // End get_certificate_font_settings()
 
 
 	/**
