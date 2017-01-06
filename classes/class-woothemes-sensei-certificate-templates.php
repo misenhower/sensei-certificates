@@ -377,10 +377,50 @@ class WooThemes_Sensei_Certificate_Templates {
 			$orientation = "P";
 		} // End If Statement
 
+
+        // Get the certificate template
+        $certificate_template_custom_fields = get_post_custom( $post->ID );
+
+        // Define the data we're going to load: Key => Default value
+        $load_data = array(
+            'certificate_font_style'	=> array(),
+            'certificate_font_color'	=> array(),
+            'certificate_font_size'	=> array(),
+            'certificate_font_family'	=> array(),
+            'image_ids'            => array(),
+            'certificate_template_fields'       => array(),
+            'pagecount'                     =>  1,
+        );
+
+        // Load the data from the custom fields
+        foreach ( $load_data as $key => $default ) {
+
+            // set value from db (unserialized if needed) or use default
+            $this->$key = ( isset( $certificate_template_custom_fields[ '_' . $key ][0] ) && '' !== $certificate_template_custom_fields[ '_' . $key ][0] ) ? ( is_array( $default ) ? maybe_unserialize( $certificate_template_custom_fields[ '_' . $key ][0] ) : $certificate_template_custom_fields[ '_' . $key ][0] ) : $default;
+
+        } // End For Loop
+
+        // Create split images.
+        $upload_dir = wp_upload_dir();
+        $filename = $upload_dir['basedir'] . '/' . $image['file'];
+
+        $pos = strrpos($filename,'.');
+        if(!$pos)
+            return;
+        $type = substr($filename,$pos+1);
+
+        exec( "convert {$filename} -crop 1x{$this->pagecount}@ +repage {$filename}_%d.{$type}" );
+
+        $page_dims = array();
+
+        for ( $i = 0; $i < $this->pagecount; $i++ ) {
+            $page_dims[] = [ $image['width'], $image['height'] / $this->pagecount, 0, $i * ($image['height'] / $this->pagecount) ];
+        }
+
 		// Create the pdf
 		// TODO: we're assuming a standard DPI here of where 1 point = 1/72 inch = 1 pixel
 		// When writing text to a Cell, the text is vertically-aligned in the middle
-		$fpdf = new tFPDF( $orientation, 'pt', array( $image['width'], $image['height'] ) );
+		$fpdf = new tFPDF( $orientation, 'pt', array( $page_dims[0][0], $page_dims[0][1] ) );
 
 		$fpdf->AddPage();
 		$fpdf->SetAutoPageBreak( false );
@@ -403,71 +443,62 @@ class WooThemes_Sensei_Certificate_Templates {
 			$fpdf->AddFont( 'DejaVu', '', 'DejaVuSansCondensed.ttf', true );
 		}
 
-		// set the certificate image
-		$upload_dir = wp_upload_dir();
-		$fpdf->Image( $upload_dir['basedir'] . '/' . $image['file'], 0, 0, $image['width'], $image['height'] );
 
-		// this is useful for displaying the text cell borders when debugging the PDF layout,
-		//  though keep in mind that we translate the box position to align the text to bottom
-		//  edge of what the user selected, so if you want to see the originally selected box,
-		//  display that prior to the translation
-		$show_border = 0;
+		for ( $i = 0; $i < count ( $page_dims ); $i++ ) {
+            // set the certificate image
+            $fpdf->Image( "{$filename}_{$i}.{$type}", 0, 0, $page_dims[$i][0], $page_dims[$i][1] );
 
-		// Get the certificate template
-		$certificate_template_custom_fields = get_post_custom( $post->ID );
+            // this is useful for displaying the text cell borders when debugging the PDF layout,
+            //  though keep in mind that we translate the box position to align the text to bottom
+            //  edge of what the user selected, so if you want to see the originally selected box,
+            //  display that prior to the translation
+            $show_border = 0;
 
-		// Define the data we're going to load: Key => Default value
-		$load_data = array(
-			'certificate_font_style'	=> array(),
-			'certificate_font_color'	=> array(),
-			'certificate_font_size'	=> array(),
-			'certificate_font_family'	=> array(),
-			'image_ids'            => array(),
-			'certificate_template_fields'       => array(),
-            'pagecount'                     =>  1,
-		);
+            // Data fields
+            $data_fields = sensei_get_certificate_data_fields();
+            foreach ( $data_fields as $field_key => $field_info ) {
 
-		// Load the data from the custom fields
-		foreach ( $load_data as $key => $default ) {
+                $meta_key = 'certificate_' . $field_key;
+                // Get the default field value
+                $field_value = $field_info['text_placeholder'];
+                if ( isset( $this->certificate_template_fields[$meta_key]['text'] ) && '' != $this->certificate_template_fields[$meta_key]['text'] ) {
 
-			// set value from db (unserialized if needed) or use default
-			$this->$key = ( isset( $certificate_template_custom_fields[ '_' . $key ][0] ) && '' !== $certificate_template_custom_fields[ '_' . $key ][0] ) ? ( is_array( $default ) ? maybe_unserialize( $certificate_template_custom_fields[ '_' . $key ][0] ) : $certificate_template_custom_fields[ '_' . $key ][0] ) : $default;
+                    $field_value = $this->certificate_template_fields[$meta_key]['text'];
+                } // End If Statement
 
-		} // End For Loop
+                // Replace the template tags
+                $field_value = apply_filters( 'sensei_certificate_data_field_value', $field_value, $field_key, true, null, null );
 
-		// Data fields
-		$data_fields = sensei_get_certificate_data_fields();
-		foreach ( $data_fields as $field_key => $field_info ) {
+                // Check if the field has a set position
+                if ( isset( $this->certificate_template_fields[$meta_key]['position']['x1'] ) ) {
 
-			$meta_key = 'certificate_' . $field_key;
-			// Get the default field value
-			$field_value = $field_info['text_placeholder'];
-			if ( isset( $this->certificate_template_fields[$meta_key]['text'] ) && '' != $this->certificate_template_fields[$meta_key]['text'] ) {
+                    $y_min = $page_dims[$i][3];
+                    $y_max = $i == count($page_dims) - 1 ? PHP_INT_MAX : $page_dims[$i + 1][3];
 
-				$field_value = $this->certificate_template_fields[$meta_key]['text'];
-			} // End If Statement
+                    if ( $y_min > $this->certificate_template_fields[$meta_key]['position']['y1'] ||
+                                  $this->certificate_template_fields[$meta_key]['position']['y1'] > $y_max ) {
+                        continue;
+                    }
 
-			// Replace the template tags
-			$field_value = apply_filters( 'sensei_certificate_data_field_value', $field_value, $field_key, true, null, null );
+                    // Write the value to the PDF
+                    $function_name = ( $field_info['type'] == 'textarea' ) ? 'textarea_field' : 'text_field';
 
-			// Check if the field has a set position
-			if ( isset( $this->certificate_template_fields[$meta_key]['position']['x1'] ) ) {
+                    $font_settings = $this->get_certificate_font_settings( $meta_key );
 
-				// Write the value to the PDF
-				$function_name = ( $field_info['type'] == 'textarea' ) ? 'textarea_field' : 'text_field';
+                    call_user_func_array( array( $this, $function_name ), array( $fpdf, $field_value, $show_border, array( $this->certificate_template_fields[$meta_key]['position']['x1'], $this->certificate_template_fields[$meta_key]['position']['y1'] - $y_min, $this->certificate_template_fields[$meta_key]['position']['width'], $this->certificate_template_fields[$meta_key]['position']['height'] ), $font_settings ) );
 
-				$font_settings = $this->get_certificate_font_settings( $meta_key );
+                } // End If Statement
 
-				call_user_func_array(array($this, $function_name), array( $fpdf, $field_value, $show_border, array( $this->certificate_template_fields[$meta_key]['position']['x1'], $this->certificate_template_fields[$meta_key]['position']['y1'], $this->certificate_template_fields[$meta_key]['position']['width'], $this->certificate_template_fields[$meta_key]['position']['height'] ), $font_settings ));
+            } // End For Loop
 
-			} // End If Statement
-
-		} // End For Loop
+            if ( $i < count( $page_dims ) - 1 ) {
+                $fpdf->AddPage();
+            }
+        }
 
         $upload_dir = wp_upload_dir();
         $upload_path = $upload_dir['basedir'] . '/woocommerce_uploads/certs/';
         $filename = $upload_path . '/cert-orig-preview-' . $post->ID . '.pdf';
-        $filename_split = $upload_path . '/cert-preview-' . $post->ID . '.pdf';
 
         if ( ! file_exists( $upload_path ) ) {
             mkdir( $upload_path, 755, true );
@@ -475,20 +506,12 @@ class WooThemes_Sensei_Certificate_Templates {
 
         $fpdf->Output( $filename, 'F' );
 
-        // We may need to split the image.
-        $pagecount = intval( $this->pagecount );
-        if ( $pagecount > 1 ) {
-            exec( "convert {$filename} -crop 1x{$pagecount}@ +repage -compress zip {$filename_split}" );
-        } else {
-            exec( "mv {$filename} {$filename_split}" );
-        }
-
         // We send to a browser
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="cert-preview-'.$post->ID.'pdf"');
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
-        echo file_get_contents( $filename_split );
+        echo file_get_contents( $filename );
         exit;
 
 	} // End generate_pdf()
