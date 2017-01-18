@@ -219,10 +219,10 @@ class WooThemes_Sensei_PDF_Certificate {
                     $fpdf->AddFont($custom_font['family'], '', $custom_font['file'], true);
                 }
             }
-        } else {
-            // Add multibyte font
-            $fpdf->AddFont( 'DejaVu', '', 'DejaVuSansCondensed.ttf', true );
         }
+
+        // Add multibyte font
+        $fpdf->AddFont( 'DejaVu', '', 'DejaVuSansCondensed.ttf', true );
 
 
         for ( $i = 0; $i < count ( $page_dims ); $i++ ) {
