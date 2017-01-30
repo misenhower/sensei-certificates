@@ -510,13 +510,7 @@ class WooThemes_Sensei_Certificates {
 		}
 
 		// Get student name
-		$student_name = $student->display_name;
-		$fname = $student->first_name;
-		$lname = $student->last_name;
-
-		if ( '' != $fname && '' != $lname ) {
-			$student_name = $fname . ' ' . $lname;
-		}
+		$student_name = $this->get_user_full_name($student);
 
 		// Get end date
 		setlocale(LC_TIME, get_locale() );
@@ -539,6 +533,24 @@ class WooThemes_Sensei_Certificates {
 		$field_value = str_replace( array_keys( $replacement_values ), array_values( $replacement_values ), $field_value );
 
 		return $field_value;
+	}
+
+	/**
+	 * Attempt to get the correct name of a user.
+	 *
+	 * @return string
+	 */
+	public function get_user_full_name($user)	{
+
+		if ( ! empty( $user->first_name ) || ! empty( $user->last_name )) {
+			$name = $user->first_name.' '.$user->last_name;
+		} elseif ( ! empty( $user->billing_first_name ) || ! empty( $user->billing_last_name )) {
+			$name = $user->billing_first_name.' '.$user->billing_last_name;
+		} else {
+			$name = $user->display_name;
+		}
+
+		return $name;
 	}
 
 	/**
