@@ -190,7 +190,10 @@ class WooThemes_Sensei_PDF_Certificate {
             return;
         $type = substr($image,$pos+1);
 
-        exec( "convert {$image} -crop 1x{$pagecount}@ +repage {$image}_%d.{$type}" );
+        // Check for existence of split images first.
+        if ( ! file_exists("{$image}_0.{$type}") ) {
+            exec( "convert {$image} -crop 1x{$pagecount}@ +repage {$image}_%d.{$type}" );
+        }
 
         $page_dims = array();
 

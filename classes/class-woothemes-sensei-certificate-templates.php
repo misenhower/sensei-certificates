@@ -409,7 +409,10 @@ class WooThemes_Sensei_Certificate_Templates {
             return;
         $type = substr($filename,$pos+1);
 
-        exec( "convert {$filename} -crop 1x{$this->pagecount}@ +repage {$filename}_%d.{$type}" );
+        // Check for existence of split images first.
+        if ( ! file_exists("{$filename}_0.{$type}") ) {
+            exec( "convert {$filename} -crop 1x{$this->pagecount}@ +repage {$filename}_%d.{$type}" );
+        }
 
         $page_dims = array();
 
