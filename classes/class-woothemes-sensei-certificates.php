@@ -470,7 +470,10 @@ class WooThemes_Sensei_Certificates {
 			$pagecount = intval( $pagecount );
 			$pagecount = $pagecount < 1 ? 1 : $pagecount;
 
-			$pdf->generate_pdf( $filename, $pagecount );
+			// Do not generate if already cached.
+			if ( ! file_exists( $filename ) ) {
+				$pdf->generate_pdf( $filename, $pagecount );
+			}
 
 			// We send to a browser
 			header('Content-Type: application/pdf');
