@@ -426,7 +426,7 @@ function sensei_create_master_certificate_template() {
 function sensei_get_certificate_data_fields() {
 	$data_fields = array(
 		'heading' => array(
-			'type' => 'text',
+			'type' => 'textarea',
 			'position_label' => __( 'Heading Position', 'sensei-certificates' ),
 			'position_description' => __( 'Optional position of the Certificate Heading', 'sensei-certificates' ),
 			'text_label' => __( 'Heading Text', 'sensei-certificates' ),
@@ -442,7 +442,7 @@ function sensei_get_certificate_data_fields() {
 			'text_placeholder' => __( 'This is to certify that', 'sensei-certificates' ) . "\r\n\r\n{{learner}} \r\n\r\n" . __( 'has completed the course', 'sensei-certificates' )
 		),
 		'course' => array(
-			'type' => 'text',
+			'type' => 'textarea',
 			'position_label' => __( 'Course Position', 'sensei-certificates' ),
 			'position_description' => __( 'Optional position of the Course Name', 'sensei-certificates' ),
 			'text_label' => __( 'Course Text', 'sensei-certificates' ),
@@ -450,7 +450,7 @@ function sensei_get_certificate_data_fields() {
 			'text_placeholder' => __( '{{course_title}}', 'sensei-certificates' ),
 		),
 		'completion' => array(
-			'type' => 'text',
+			'type' => 'textarea',
 			'position_label' => __( 'Completion Date Position', 'sensei-certificates' ),
 			'position_description' => __( 'Optional position of the Course Completion date', 'sensei-certificates' ),
 			'text_label' => __( 'Completion Date Text', 'sensei-certificates' ),
@@ -458,7 +458,7 @@ function sensei_get_certificate_data_fields() {
 			'text_placeholder' => __( '{{completion_date}}', 'sensei-certificates' ),
 		),
 		'place' => array(
-			'type' => 'text',
+			'type' => 'textarea',
 			'position_label' => __( 'Place Position', 'sensei-certificates' ),
 			'position_description' => __( 'Optional position of the place of Certification.', 'sensei-certificates' ),
 			'text_label' => __( 'Course Place Text', 'sensei-certificates' ),
