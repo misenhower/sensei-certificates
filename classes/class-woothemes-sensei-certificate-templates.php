@@ -511,7 +511,7 @@ class WooThemes_Sensei_Certificate_Templates {
 
         // We send to a browser
         header('Content-Type: application/pdf');
-        header('Content-Disposition: inline; filename="cert-preview-'.$post->ID.'pdf"');
+        header('Content-Disposition: inline; filename="cert-preview-'.$post->ID.'.pdf"');
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
         echo file_get_contents( $filename );
