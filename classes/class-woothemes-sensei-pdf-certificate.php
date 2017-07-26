@@ -361,7 +361,7 @@ class WooThemes_Sensei_PDF_Certificate {
 
 			// Check for Border and Center align
 			$border = 0;
-			$center = 'J';
+			$center = 'L';
 			if ( isset( $font['font_style'] ) && !empty( $font['font_style'] ) && false !== strpos( $font['font_style'], 'C' ) ) {
 				$center = 'C';
 				$font['font_style'] = str_replace( 'C', '', $font['font_style']);
@@ -472,7 +472,7 @@ class WooThemes_Sensei_PDF_Certificate {
 
 			// Check for Border and Center align
 			$border = 0;
-			$center = 'J';
+			$center = 'L';
 			if ( isset( $font['font_style'] ) && !empty( $font['font_style'] ) && false !== strpos( $font['font_style'], 'C' ) ) {
 				$center = 'C';
 				$font['font_style'] = str_replace( 'C', '', $font['font_style']);
