@@ -24,6 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  * - generate_certificate_number()
  * - can_view_certificate()
  * - download_certificate()
+ * - replace_data_field_template_tags()
  * - certificate_text()
  * - certificate_backgroudn()
  * - get_certificate_font_settings()
@@ -123,8 +124,8 @@ class WooThemes_Sensei_Certificates {
 		add_action( 'sensei_user_course_end', array( $this, 'generate_certificate_number' ), 10, 2 );
 		// Background Image to display on certificate
 		add_action( 'sensei_certificates_set_background_image', array( $this, 'certificate_background' ), 10, 1 );
-		// Text to display on certificate
-		add_action( 'sensei_certificates_before_pdf_output', array( $this, 'certificate_text' ), 10, 2 );
+		// Certificate data field tag replacement
+		add_filter( 'sensei_certificate_data_field_value', array( $this, 'replace_data_field_template_tags'), 10, 5 );
 
 	} // End __construct()
 
@@ -453,7 +454,33 @@ class WooThemes_Sensei_Certificates {
 			// Generate the certificate here
 			require_once( 'class-woothemes-sensei-pdf-certificate.php' );
 			$pdf = new WooThemes_Sensei_PDF_Certificate( $hash );
-			$pdf->generate_pdf();
+
+			$upload_dir = wp_upload_dir();
+			$upload_path = $upload_dir['basedir'] . '/woocommerce_uploads/certs/';
+			$filename = $upload_path . '/cert-' . $hash . '.pdf';
+
+			if ( ! file_exists( $upload_path ) ) {
+				mkdir( $upload_path, 755, true );
+			}
+
+			// We may need to split the image.
+			$course_id = get_post_meta( get_the_ID(), 'course_id', true );
+			$certificate_template_id = get_post_meta( $course_id, '_course_certificate_template', true );
+			$pagecount = get_post_meta( $certificate_template_id, '_pagecount', true );
+			$pagecount = intval( $pagecount );
+			$pagecount = $pagecount < 1 ? 1 : $pagecount;
+
+			// Do not generate if already cached.
+			if ( ! file_exists( $filename ) ) {
+				$pdf->generate_pdf( $filename, $pagecount );
+			}
+
+			// We send to a browser
+			header('Content-Type: application/pdf');
+			header('Content-Disposition: inline; filename="cert-'.$hash.'.pdf"');
+			header('Cache-Control: private, max-age=0, must-revalidate');
+			header('Pragma: public');
+			echo file_get_contents( $filename );
 			exit;
 
 		} else {
@@ -464,165 +491,71 @@ class WooThemes_Sensei_Certificates {
 
 	} // End generate_certificate()
 
-
 	/**
-	 * Add text to the certificate
+	 * Replace template tags on certificate data fields.
 	 *
 	 * @access public
-	 * @since  1.0.0
-	 * @return void
+	 * @since  x.x.x
+	 * @return string
 	 */
-	public function certificate_text( $pdf_certificate, $fpdf ) {
+	public function replace_data_field_template_tags($field_value, $field_key, $is_preview, $student, $course)
+	{
+		// Prepare data
+		if ($is_preview) {
+			$student = wp_get_current_user();
+			$course_title = __( 'Course Title', 'sensei-certificates' );
+			$course_end_date = date('Y-m-d');
+		}
+		else {
+			$course_title = $course->post_title;
+			$course_end = Sensei_Utils::sensei_check_for_activity( array( 'post_id' => $course->ID, 'user_id' => $student->ID, 'type' => 'sensei_course_status' ), true );
+			$course_end_date = $course_end->comment_date;
+		}
 
-		$show_border = apply_filters( 'woothemes_sensei_certificates_show_border', 0 );
-		$start_position = 200;
+		// Get student name
+		$student_name = $this->get_user_full_name($student);
 
-		// Find certificate based on hash
-		$args = array(
-			'post_type' => 'certificate',
-			'meta_key' => 'certificate_hash',
-			'meta_value' => $pdf_certificate->hash
+		// Get end date
+		setlocale(LC_TIME, get_locale() );
+
+		if( false !== strpos( get_locale(), 'en' ) ) {
+			$date_format = apply_filters( 'sensei_certificate_date_format', 'jS F Y' );
+			$date = date( $date_format, strtotime( $course_end_date ) );
+		} else {
+			$date_format = apply_filters( 'sensei_certificate_date_format', '%Y %B %e' );
+			$date = strftime ( $date_format, strtotime( $course_end_date ) );
+		}
+
+		$replacement_values = array(
+			'{{learner}}' => $student_name,
+			'{{course_title}}' => $course_title,
+			'{{completion_date}}' => $date,
+			'{{course_place}}' => get_bloginfo('name'),
+            '{{cpd_points}}' => get_field('cpd_points',$course->ID),
 		);
 
-		$query = new WP_Query( $args );
-		$certificate_id = 0;
+		$field_value = str_replace( array_keys( $replacement_values ), array_values( $replacement_values ), $field_value );
 
-		if ( $query->have_posts() ) {
+		return $field_value;
+	}
 
-			$query->the_post();
-			$certificate_id = $query->posts[0]->ID;
+	/**
+	 * Attempt to get the correct name of a user.
+	 *
+	 * @return string
+	 */
+	public function get_user_full_name($user)	{
 
-		} // End If Statement
-
-		wp_reset_query();
-
-		if ( 0 < intval( $certificate_id ) ) {
-
-			// Get Student Data
-			$user_id = get_post_meta( $certificate_id, 'learner_id', true );
-			$student = get_userdata( $user_id );
-			$student_name = $student->display_name;
-			$fname = $student->first_name;
-			$lname = $student->last_name;
-
-			if ( '' != $fname && '' != $lname ) {
-				$student_name = $fname . ' ' . $lname;
-			}
-
-			// Get Course Data
-			$course_id = get_post_meta( $certificate_id, 'course_id', true );
-			$course = Sensei()->course->course_query( -1, 'usercourses', $course_id );
-			$course = $course[0];
-			$course_end = Sensei_Utils::sensei_check_for_activity( array( 'post_id' => intval( $course_id ), 'user_id' => intval( $user_id ), 'type' => 'sensei_course_status' ), true );
-			$course_end_date = $course_end->comment_date;
-
-			// Get the certificate template
-			$certificate_template_id = get_post_meta( $course_id, '_course_certificate_template', true );
-
-			$certificate_template_custom_fields = get_post_custom( $certificate_template_id );
-
-			// Define the data we're going to load: Key => Default value
-			$load_data = array(
-				'certificate_font_style'	=> array(),
-				'certificate_font_color'	=> array(),
-				'certificate_font_size'	=> array(),
-				'certificate_font_family'	=> array(),
-				'image_ids'            => array(),
-				'certificate_template_fields'       => array(),
-			);
-
-			// Load the data from the custom fields
-			foreach ( $load_data as $key => $default ) {
-
-				// set value from db (unserialized if needed) or use default
-				$this->$key = ( isset( $certificate_template_custom_fields[ '_' . $key ][0] ) && '' !== $certificate_template_custom_fields[ '_' . $key ][0] ) ? ( is_array( $default ) ? maybe_unserialize( $certificate_template_custom_fields[ '_' . $key ][0] ) : $certificate_template_custom_fields[ '_' . $key ][0] ) : $default;
-
-			} // End For Loop
-
-			// Set default fonts
-			if ( isset( $this->certificate_font_color ) && '' != $this->certificate_font_color ) { $pdf_certificate->certificate_pdf_data['font_color'] = $this->certificate_font_color; }
-			if ( isset( $this->certificate_font_size ) && '' != $this->certificate_font_size ) { $pdf_certificate->certificate_pdf_data['font_size'] = $this->certificate_font_size; }
-			if ( isset( $this->certificate_font_family ) && '' != $this->certificate_font_family ) { $pdf_certificate->certificate_pdf_data['font_family'] = $this->certificate_font_family; }
-			if ( isset( $this->certificate_font_style ) && '' != $this->certificate_font_style ) { $pdf_certificate->certificate_pdf_data['font_style'] = $this->certificate_font_style; }
-
-			// Set default fonts
-			setlocale(LC_TIME, get_locale() );
-
-			if( false !== strpos( get_locale(), 'en' ) ) {
-				$date_format = apply_filters( 'sensei_certificate_date_format', 'jS F Y' );
-				$date = date( $date_format, strtotime( $course_end_date ) );
-			} else {
-				$date_format = apply_filters( 'sensei_certificate_date_format', '%Y %B %e' );
-				$date = strftime ( $date_format, strtotime( $course_end_date ) );
-			}
-
-			$certificate_heading = __( 'Certificate of Completion', 'sensei-certificates' ); // Certificate of Completion
-			if ( isset( $this->certificate_template_fields['certificate_heading']['text'] ) && '' != $this->certificate_template_fields['certificate_heading']['text'] ) {
-
-				$certificate_heading = $this->certificate_template_fields['certificate_heading']['text'];
-				$certificate_heading = str_replace( array( '{{learner}}', '{{course_title}}', '{{completion_date}}', '{{course_place}}'  ), array( $student_name, $course->post_title, $date, get_bloginfo( 'name' ) ) , $certificate_heading );
-			} // End If Statement
-
-			$certificate_message = __( 'This is to certify that', 'sensei-certificates' ) . " \r\n\r\n" . $student_name . " \r\n\r\n" . __( 'has completed the course', 'sensei-certificates' ); // This is to certify that {{learner}} has completed the course
-			if ( isset( $this->certificate_template_fields['certificate_message']['text'] ) && '' != $this->certificate_template_fields['certificate_message']['text'] ) {
-
-				$certificate_message = $this->certificate_template_fields['certificate_message']['text'];
-				$certificate_message = str_replace( array( '{{learner}}', '{{course_title}}', '{{completion_date}}', '{{course_place}}'  ), array( $student_name, $course->post_title, $date, get_bloginfo( 'name' ) ) , $certificate_message );
-
-			} // End If Statement
-
-			$certificate_course = $course->post_title; // {{course_title}}
-			if ( isset( $this->certificate_template_fields['certificate_course']['text'] ) && '' != $this->certificate_template_fields['certificate_course']['text'] ) {
-
-				$certificate_course = $this->certificate_template_fields['certificate_course']['text'];
-				$certificate_course = str_replace( array( '{{learner}}', '{{course_title}}', '{{completion_date}}', '{{course_place}}'  ), array( $student_name, $course->post_title, $date, get_bloginfo( 'name' ) ) , $certificate_course );
-
-			} // End If Statement
-
-			$certificate_completion = $date; // {{completion_date}}
-			if ( isset( $this->certificate_template_fields['certificate_completion']['text'] ) && '' != $this->certificate_template_fields['certificate_completion']['text'] ) {
-
-				$certificate_completion = $this->certificate_template_fields['certificate_completion']['text'];
-				$certificate_completion = str_replace( array( '{{learner}}', '{{course_title}}', '{{completion_date}}', '{{course_place}}'  ), array( $student_name, $course->post_title, $date, get_bloginfo( 'name' ) ) , $certificate_completion );
-
-			} // End If Statement
-
-			$certificate_place = sprintf( __( 'At %s', 'sensei-certificates' ), get_bloginfo( 'name' ) ); // At {{course_place}}
-			if ( isset( $this->certificate_template_fields['certificate_place']['text'] ) && '' != $this->certificate_template_fields['certificate_place']['text'] ) {
-
-				$certificate_place = $this->certificate_template_fields['certificate_place']['text'];
-				$certificate_place = str_replace( array( '{{learner}}', '{{course_title}}', '{{completion_date}}', '{{course_place}}'  ), array( $student_name, $course->post_title, $date, get_bloginfo( 'name' ) ) , $certificate_place );
-
-			} // End If Statement
-
-			$output_fields = array(	'certificate_heading' 		=> 'text_field',
-									'certificate_message' 		=> 'textarea_field',
-									'certificate_course'		=> 'text_field',
-									'certificate_completion' 	=> 'text_field',
-									'certificate_place' 		=> 'text_field',
-								 );
-
-			foreach ( $output_fields as $meta_key => $function_name ) {
-
-				// Check if the field has a set position
-				if ( isset( $this->certificate_template_fields[$meta_key]['position']['x1'] ) ) {
-
-					$font_settings = $this->get_certificate_font_settings( $meta_key );
-
-					call_user_func_array(array($pdf_certificate, $function_name), array( $fpdf, $$meta_key, $show_border, array( $this->certificate_template_fields[$meta_key]['position']['x1'], $this->certificate_template_fields[$meta_key]['position']['y1'], $this->certificate_template_fields[$meta_key]['position']['width'], $this->certificate_template_fields[$meta_key]['position']['height'] ), $font_settings ));
-
-				} // End If Statement
-
-			} // End For Loop
-
+		if ( ! empty( $user->first_name ) || ! empty( $user->last_name )) {
+			$name = $user->first_name.' '.$user->last_name;
+		} elseif ( ! empty( $user->billing_first_name ) || ! empty( $user->billing_last_name )) {
+			$name = $user->billing_first_name.' '.$user->billing_last_name;
 		} else {
+			$name = $user->display_name;
+		}
 
-			wp_die( __( 'The certificate you are searching for does not exist.', 'sensei-certificates' ), __( 'Certificate Error', 'sensei-certificates' ) );
-
-		} // End If Statement
-
-	} // End certificate_text()
-
+		return $name;
+	}
 
 	/**
 	 * Add background to the certificate
@@ -690,39 +623,6 @@ class WooThemes_Sensei_Certificates {
 		} // End If Statement
 
 	} // End certificate_background()
-
-
-	/**
-	 * Returns font settings for the certificate template
-	 *
-	 * @access public
-	 * @since  1.0.0
-	 * @param string $field_key
-	 * @return array $return_array
-	 */
-	public function get_certificate_font_settings( $field_key = '' ) {
-
-		$return_array = array();
-
-		if ( isset( $this->certificate_template_fields[$field_key]['font']['color'] ) && '' != $this->certificate_template_fields[$field_key]['font']['color'] ) {
-			$return_array['font_color'] = $this->certificate_template_fields[$field_key]['font']['color'];
-		} // End If Statement
-
-		if ( isset( $this->certificate_template_fields[$field_key]['font']['family'] ) && '' != $this->certificate_template_fields[$field_key]['font']['family'] ) {
-			$return_array['font_family'] = $this->certificate_template_fields[$field_key]['font']['family'];
-		} // End If Statement
-
-		if ( isset( $this->certificate_template_fields[$field_key]['font']['style'] ) && '' != $this->certificate_template_fields[$field_key]['font']['style'] ) {
-			$return_array['font_style'] = $this->certificate_template_fields[$field_key]['font']['style'];
-		} // End If Statement
-
-		if ( isset( $this->certificate_template_fields[$field_key]['font']['size'] ) && '' != $this->certificate_template_fields[$field_key]['font']['size'] ) {
-			$return_array['font_size'] = $this->certificate_template_fields[$field_key]['font']['size'];
-		} // End If Statement
-
-		return $return_array;
-
-	} // End get_certificate_font_settings()
 
 	/**
 	 * certificate_link frontend output function for certificate link
