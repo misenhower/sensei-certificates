@@ -531,6 +531,7 @@ class WooThemes_Sensei_Certificates {
 			'{{course_title}}' => $course_title,
 			'{{completion_date}}' => $date,
 			'{{course_place}}' => get_bloginfo('name'),
+            '{{cpd_points}}' => get_field('cpd_points',$course->ID),
 		);
 
 		$field_value = str_replace( array_keys( $replacement_values ), array_values( $replacement_values ), $field_value );
